@@ -1,0 +1,82 @@
+#!/bin/bash
+
+## REMOVE PASSWORDS from the file asap
+
+## BACKGROUOND VARIABLES
+# today=`date +%Y-%m-%d.%H:%M:%S`
+
+rm -f mdm.tar*
+rm -f mdm-dev.tar*
+
+
+# DEV SETTINGS
+export PGDATABASE=mdm
+export PGHOST=mdm-dev-nv.czeeov6ww1lg.us-east-1.rds.amazonaws.com
+export PGPORT=5431
+export PGUSER=mdmascent1
+export PGPASSWORD=AscentMDMDev123
+
+echo Step 1: first keep backup of dev database
+pg_dump -v -d mdm -Ft > mdm-dev.tar
+
+
+echo Step 2: terminate active connections on db
+psql -h mdm-dev-nv.czeeov6ww1lg.us-east-1.rds.amazonaws.com -U mdmascent1 -p 5431 -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = 'mdm';" -w
+
+
+echo Step 3: drop mdm db
+psql -h mdm-dev-nv.czeeov6ww1lg.us-east-1.rds.amazonaws.com -U mdmascent1 -p 5431 -d postgres -c "drop database mdm" -w
+
+
+echo Step 4: create mdm db
+psql -h mdm-dev-nv.czeeov6ww1lg.us-east-1.rds.amazonaws.com -U mdmascent1 -p 5431 -d postgres -c "create database mdm" -w
+
+
+## PRODUCTION SETTINGS
+export PGDATABASE=mdm
+export PGHOST=prod-mdm-new.cijfstakmq3t.ap-south-1.rds.amazonaws.com
+export PGPORT=5432
+export PGUSER=mdmascent1
+export PGPASSWORD=MDM@scent@1
+
+echo Step 5: take backup of production database
+pg_dump -v -d mdm -Ft > mdm.tar
+
+# DEV SETTINGS
+export PGDATABASE=mdm
+export PGHOST=mdm-dev-nv.czeeov6ww1lg.us-east-1.rds.amazonaws.com
+export PGPORT=5431
+export PGUSER=mdmascent1
+export PGPASSWORD=AscentMDMDev123
+
+echo Step 6: restore prod to dev
+pg_restore -v -d mdm -c -C -Ft < mdm.tar
+
+
+# DEV SETTINGS
+export PGDATABASE=mdm
+export PGHOST=mdm-dev-nv.czeeov6ww1lg.us-east-1.rds.amazonaws.com
+export PGPORT=5431
+export PGUSER=mdmascent1
+export PGPASSWORD=AscentMDMDev123
+
+
+echo Step 7: update user details at dev db
+
+psql -h mdm-dev-nv.czeeov6ww1lg.us-east-1.rds.amazonaws.com -U mdmascent1 -p 5431 -d mdm -c "INSERT INTO public.oauth2_provider_application
+(client_id, redirect_uris, client_type, authorization_grant_type, client_secret, "name", user_id, skip_authorization, created, updated)
+VALUES('JBhq4fTiXB2a8B4joYyVJCgI14xv7tBnhkVcrr25', '', 'confidential', 'password', 'XhqEUSb5gx0qcnDnc3SVufaiewfK9ksdglfBmFmrDJVpsuB9RS8rgeYZMeILC9JuzYC7kDYmpdpnpBsH1yWmcJRjPc3rc36p86j1LHJYm6HqjHuN1S5Gz8OwwokbWXhy', 
+'NEW_MDM_GATEWAY_APPLICATION', 1, false, '2018-06-06 14:41:08', '2018-06-06 14:42:47');" -w
+
+psql -h mdm-dev-nv.czeeov6ww1lg.us-east-1.rds.amazonaws.com -U mdmascent1 -p 5431 -d mdm -c "INSERT INTO public.oauth2_provider_application
+(client_id, redirect_uris, client_type, authorization_grant_type, client_secret, "name", user_id, skip_authorization, created, updated)
+VALUES('2l92RRKKtyQcfbb4ASQTgToznMiRNkd6X7tpAQcq', '', 'confidential', 'password', 'GjdhXMcvPERMZ1aoIoAwyHs5TqFod7al8W1ElFgd677FgCmtmlX5G8jxda6qULcSWkuGrUPSrojc5hPPd3BCrPIQ47YJyazvdgy0FmMK8yeALUZEnGwZJqZzqxR4fT9B', 
+'NEW_MDM_GATEWAY_APPLICATION', 1, false, '2018-06-06 14:41:08', '2018-06-06 14:42:47');" -w
+
+
+
+## this step creates mdm.sql.gz and uploads it to s3
+gzip mdm.tar
+gzip mdm-dev.tar
+
+
