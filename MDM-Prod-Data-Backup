@@ -1,0 +1,22 @@
+#!/bin/bash
+
+## REMOVE PASSWORDS from the file asap
+
+## BACKGROUOND VARIABLES
+# today=`date +%Y-%m-%d.%H:%M:%S`
+
+rm -f mdm-backup.tar*
+
+# PRODUCTION SETTINGS
+export PGDATABASE=mdm
+export PGHOST=prod-mdm-new.cijfstakmq3t.ap-south-1.rds.amazonaws.com
+export PGPORT=5432
+export PGUSER=mdmascent1
+export PGPASSWORD=MDM@scent@1
+
+echo Step 1: take backup of production database
+pg_dump -v -d mdm -Ft > mdm-backup.tar
+
+
+## this step creates mdm.sql.gz and uploads it to s3
+gzip mdm-backup.tar
